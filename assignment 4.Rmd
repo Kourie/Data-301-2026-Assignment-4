@@ -48,7 +48,7 @@ lambda_tilde <- function(x, B = 200) {
 }
 ```
 
-3.  Make a Monte Carlo experiment comparing these three estimators. Use as pa- rameter space Λ × 𝑁 , where 𝜆 ∈ Λ = {.1, 1, 10} and 𝑛 ∈ 𝑁 = {5, 30, 100}. Use the mean square error as the sole metric for your analysis. Report your results. Justify your choice(s) of the number of replications for each 𝜆 and each 𝑛. \
+3.  Make a Monte Carlo experiment comparing these three estimators. Use as pa- rameter space Λ × 𝑁 , where 𝜆 ∈ Λ = {.1, 1, 10} and 𝑛 ∈ 𝑁 = {5, 30, 100}. Use the mean square error as the sole metric for your analysis. Report your results. Justify your choice(s) of the number of replications for each 𝜆 and each 𝑛.\
 
 Previously, it was stated that we can fix the number of bootstrap replications to 200. We have kept it as such.
 
@@ -93,7 +93,7 @@ compute_estimators <- function(x, B = 200) {
 # Main Monte Carlo Driver Function
 run_monte_carlo <- function(lambdas = c(0.1, 1.0, 10.0), 
                              sample_sizes = c(5, 30, 100), 
-                             M = 100, 
+                             M = 5000, 
                              B = 200, 
                              seed = 42) {
   set.seed(seed)
