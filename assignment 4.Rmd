@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Here is my github link: <https://github.com/Kourie/Data-301-2026-Assignment-4>
+
 ## Excercise 1
 
 1.  Which type of order statistics would you use and why? Which is the default type of order statistics your version of R/Python uses?
