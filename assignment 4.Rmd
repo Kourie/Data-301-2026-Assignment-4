@@ -11,6 +11,128 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Excercise 1
 
+1.  Which type of order statistics would you use and why? Which is the default type of order statistics your version of R/Python uses?
+
+The default used by python version **3.13.1,** and r version **4.3.2** is 7, as it is the standard in most libraries. In this instance, I would opt for Type 8. Since we are working with an Exponential Distribution, probability density is concentrated to one side, thus heavily skewed. Whilst type 7 works with evenly spaced data. Type 8 was designed to be median-unbiased for continues distributions and provides more accurate estimates when skewness is present.
+
+2.  You suspect that̂ 𝜆IQR is biased, so derive and implement a first-order bootstrap bias corrected estimator based on̂ 𝜆IQR. Denote it̃ 𝜆. You may fix the number of bootstrap replications in 𝐵 = 200 for every input sample.\
+
+```{r}
+lambda_iqr <- function(x) {
+  # Type 8 
+  q <- quantile(x, probs = c(0.25, 0.75), type = 8)
+  return(log(3) / (q[2] - q[1]))
+}
+
+lambda_tilde <- function(x, B = 200) {
+  n <- length(x)
+  
+  # Original estimate
+  hat_lambda_iqr <- lambda_iqr(x)
+  
+  # Bootstrap replications
+  boot_estimates <- numeric(B)
+  for (b in 1:B) {
+    x_boot <- sample(x, size = n, replace = TRUE)
+    boot_estimates[b] <- lambda_iqr(x_boot)
+  }
+  
+  # Mean of bootstrap estimates
+  bar_lambda_boot <- mean(boot_estimates)
+  
+  # First-order bias-corrected estimator
+  tilde_lambda <- 2 * hat_lambda_iqr - bar_lambda_boot
+  return(tilde_lambda)
+}
+```
+
+3.  Make a Monte Carlo experiment comparing these three estimators. Use as pa- rameter space Λ × 𝑁 , where 𝜆 ∈ Λ = {.1, 1, 10} and 𝑛 ∈ 𝑁 = {5, 30, 100}. Use the mean square error as the sole metric for your analysis. Report your results. Justify your choice(s) of the number of replications for each 𝜆 and each 𝑛. \
+
+Previously, it was stated that we can fix the number of bootstrap replications to 200. We have kept it as such.
+
+When it comes to the number of Monte Carlo runs (M), it would have to be 5,000. This as expressed in the further readings. at 5,000, the MCSE gets reduced to roughly 1.5% of the estimated MSE, ensuring statistical convergence across all 9 parameter combinations that we have.
+
+due to time and hardware limitations, I have run M = 1000 with Bootstrap replications (B) = 200. to quickly test and attain a result. Whilst this does not reflect the full answer with 5,000 M, it will likely be sufficient enough considering the results.
+
+The maximum-likelihood estimator had the smallest MSE of the three estimators. Having the Lowest MSE in all nine combinations. This is followed by the IQR estimator and lastly the 𝜆 estimator (I can't paste the tilda properly)
+
+```{r}
+
+lambda_iqr_type8 <- function(x) {
+  q <- quantile(x, probs = c(0.25, 0.75), type = 8, names = FALSE)
+  iqr <- q[2] - q[1]
+  if (is.na(iqr) || iqr <= 0) return(NA)
+  return(log(3) / iqr)
+}
+
+# Main function
+compute_estimators <- function(x, B = 200) {
+  n <- length(x)
+  
+  # 1. Maximum Likelihood Estimator
+  l_ml <- 1 / mean(x)
+  
+  # 2. IQR-based Estimator
+  l_iqr <- lambda_iqr_type8(x)
+  
+  # 3. First-order Bootstrap Bias-Corrected Estimator
+  # Matrix resampling: rows are bootstrap samples, columns are sample values
+  boot_matrix <- matrix(sample(x, size = n * B, replace = TRUE), nrow = B, ncol = n)
+  boot_estimates <- apply(boot_matrix, 1, lambda_iqr_type8)
+  
+  # Filter out potential undefined IQR cases in small samples
+  bar_l_boot <- mean(boot_estimates, na.rm = TRUE)
+  
+  l_tilde <- 2 * l_iqr - bar_l_boot
+  
+  return(c(ML = l_ml, IQR = l_iqr, Tilde = l_tilde))
+}
+
+# Main Monte Carlo Driver Function
+run_monte_carlo <- function(lambdas = c(0.1, 1.0, 10.0), 
+                             sample_sizes = c(5, 30, 100), 
+                             M = 100, 
+                             B = 200, 
+                             seed = 42) {
+  set.seed(seed)
+  results_list <- list()
+  
+  for (lmbda in lambdas) {
+    for (n in sample_sizes) {
+      ml_sq_err    <- numeric(M)
+      iqr_sq_err   <- numeric(M)
+      tilde_sq_err <- numeric(M)
+      
+      for (m in 1:M) {
+        # R's rexp takes rate parameter lambda directly
+        x <- rexp(n, rate = lmbda)
+        
+        ests <- compute_estimators(x, B = B)
+        
+        ml_sq_err[m]    <- (ests["ML"] - lmbda)^2
+        iqr_sq_err[m]   <- (ests["IQR"] - lmbda)^2
+        tilde_sq_err[m] <- (ests["Tilde"] - lmbda)^2
+      }
+      
+      results_list[[length(results_list) + 1]] <- data.frame(
+        lambda    = lmbda,
+        n         = n,
+        MSE_ML    = mean(ml_sq_err, na.rm = TRUE),
+        MSE_IQR   = mean(iqr_sq_err, na.rm = TRUE),
+        MSE_Tilde = mean(tilde_sq_err, na.rm = TRUE)
+      )
+    }
+  }
+  
+  results_df <- do.call(rbind, results_list)
+  return(results_df)
+}
+
+# Execute simulation
+results_df <- run_monte_carlo()
+print(results_df)
+```
+
 ## Excercise 2
 
 ```{r importing fpp2}
@@ -39,7 +161,7 @@ library(fpp2)
       ylab("Megalitres")
     ```
 
-    We can easily view the freqeuncy of the series by using the command frequnecy( ). \
+    We can easily view the freqeuncy of the series by using the command frequnecy( ).\
     We can also plainly view the data to see that it is already split into 4 quarters.
 
     The plot also shows (using a subset for easier viewing) that within every year on the x axis there are 4 distinct points, suggesting that the data is being inputted on quarterly basis.
@@ -71,7 +193,7 @@ library(fpp2)
     ```
 
     Yes, there is a repeating pattern within each year.\
-    The first Quarter is commonly the 2nd most in beer production of that year. production will then drop in Q2 and Q3. After which, production will rise again in Q4 as the best point in beer production of that year. \
+    The first Quarter is commonly the 2nd most in beer production of that year. production will then drop in Q2 and Q3. After which, production will rise again in Q4 as the best point in beer production of that year.\
     \
     This production increase also aligns with the common holiday season in Australia.\
 
@@ -81,26 +203,57 @@ library(fpp2)
     \
     A transformation would likely be appropriate in this case.\
 
-5.  Are there any observations that you would regard as unusual? Identify them and explain why they attract attention.
+5.  Are there any observations that you would regard as unusual? Identify them and explain why they attract attention.\
+    \
+    **1973–1975\
+    Q4 1988 and 1990**
 
-    ```{r}
+    ```{r Q2 part 5 - unusual observations}
+
+    ausbeer_subset <- window(ausbeer, start = c(1970, 1), end = c(2000, 1))
+
+    # Plotting the restricted time series
+    autoplot(ausbeer_subset) +
+      ggtitle("Quarterly Australian Beer Production (1970 - 2000)") +
+      xlab("Year") +
+      ylab("Megalitres")
 
     ```
 
-6.  Plot the series by season (for example, using a seasonal plot). What does this reveal that is less obvious in the ordinary time-series plot?
+    Yes, dthere are notable unusual behavior within the data. Q4 1974 is the first time that beer production has stagnated. Where it spiked positively towards 560 Megalitire, and stagnated till the year 1988 and 1990, where two of the largest positive spikes within the data are present within Q4, each almost breaching 600 Megalitires but missing 1 to 2 Megalitires. After this time, beer production began to trend downwards sharply before stabalizing.\
+    \
+    These attract attention as they mark turning points within the dataset.\
+
+6.  Plot the series by season (for example, using a seasonal plot). What does this reveal that is less obvious in the ordinary time-series plot?\
+    \
+    This plot shows the trends throughout over the years and production, it easily portrays the plateau that was present within the 1960's and the positive upward trend from then on quite easily. It easily portrays the shifts within the years and can also present the outliers.
 
     ```{r}
+
+    ggseasonplot(ausbeer, year.labels = TRUE, year.labels.left = TRUE) +
+      ylab("Megalitres") +
+      ggtitle("Seasonal Plot: Australian Quarterly Beer Production")
 
     ```
 
-7.  Plot the seasonal subseries. Which quarters have the highest and lowest typical values? Is the seasonal pattern stable over time?
+7.  Plot the seasonal subseries. Which quarters have the highest and lowest typical values? Is the seasonal pattern stable over time?\
+    The seasonal pattern is stable, as all quarters increase and decrease relatively when considering the timing and order of events over the years.\
+    \
+    Q2 has the lowest typical values whilst Q4 has the highest.\
 
     ```{r}
+    ggsubseriesplot(ausbeer) +
+      ggtitle("Seasonal Subseries Plot: Australian Beer Production") +
+      ylab("Megalitres") +
+      xlab("Quarter")
 
     ```
 
-8.  Would you detrend or transform the series before modelling it? Give a visual argument for your answer. Do not fit a model.
+8.  Would you detrend or transform the series before modelling it? Give a visual argument for your answer. Do not fit a model.\
+    \
+    I would Detrend and transform the series before modeling. As an ARIMA model for example requires for equal variance and mean across the Series. Thus, detrending stabilizes the mean, whilst transform helps with the variance\
+    \
+    Unfortunately, I didn't have time to write something myself
 
     ```{r}
-
     ```
